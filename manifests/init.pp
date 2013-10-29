@@ -14,9 +14,13 @@ Parameters:
 - *$digest_type: Default value "md5"
 - *$src_target: Default value "/usr/src"
 - *$root_dir: Default value ""
+- *mk_root_dir: Creates ${root_dir} under ${target}. This useful for use in conjunction with $strip_leader or with archives that have no leading/root directory in the path. Default value false
 - *$extension: Default value ".tar.gz"
 - *$timeout: Default value 120
 - *$allow_insecure: Default value false
+- *$follow_redirects: TODO : missing documentation from upstream
+- *$strip_leader: Strips the leading component of the extracted path (works with tar archives). Default value false
+- *$version: Version of the archive.  This is used to determine whether to redeploy an archive. Default value ${name}
 
 Example usage:
 
@@ -37,12 +41,16 @@ define archive (
   $digest_type='md5',
   $timeout=120,
   $root_dir='',
+  $mk_root_dir=false,
   $extension='tar.gz',
   $src_target='/usr/src',
   $allow_insecure=false,
   $follow_redirects=false,
+  $strip_leader=false,
+  $version=$name,
 ) {
 
+  # TODO : add user/group targets for extracted contents of archive
   archive::download {"${name}.${extension}":
     ensure           => $ensure,
     url              => $url,
@@ -57,12 +65,15 @@ define archive (
   }
 
   archive::extract {$name:
-    ensure     => $ensure,
-    target     => $target,
-    src_target => $src_target,
-    root_dir   => $root_dir,
-    extension  => $extension,
-    timeout    => $timeout,
-    require    => Archive::Download["${name}.${extension}"]
+    ensure       => $ensure,
+    target       => $target,
+    src_target   => $src_target,
+    root_dir     => $root_dir,
+    mk_root_dir  => $mk_root_dir,
+    extension    => $extension,
+    strip_leader => $strip_leader,
+    version      => $version,
+    timeout      => $timeout,
+    require      => Archive::Download["${name}.${extension}"]
   }
 }

@@ -36,13 +36,21 @@ define archive::extract (
   $ensure=present,
   $src_target='/usr/src',
   $root_dir='',
+  $mk_root_dir=false,
   $extension='tar.gz',
+  $strip_leader=false,
+  $version='',
   $timeout=120) {
 
   if $root_dir != '' {
     $extract_dir = "${target}/${root_dir}"
+    if $mk_root_dir {
+      $target = $extract_dir
+      $version_file = "${target}/.${root_dir}_version"
+    }
   } else {
     $extract_dir = "${target}/${name}"
+    $version_file = "${target}/.${name}_version"
   }
 
   case $ensure {
@@ -52,6 +60,16 @@ define archive::extract (
       $extract_targz  = "tar --no-same-owner --no-same-permissions -xzf ${src_target}/${name}.${extension} -C ${target}"
       $extract_tarbz2 = "tar --no-same-owner --no-same-permissions -xjf ${src_target}/${name}.${extension} -C ${target}"
 
+      if $strip_leader {
+        $extract_targz = "${extract_targz} --strip-components=1"
+        $extract_targz = "${extract_targz} --strip-components=1"
+      }
+
+      file { $version_file:
+        ensure  => present,
+        content => "$version",
+      }
+      ->
       exec {"$name unpack":
         command => $extension ? {
           'zip'     => "mkdir -p ${target} && ${extract_zip}",
@@ -61,8 +79,9 @@ define archive::extract (
           'tgz2'    => "mkdir -p ${target} && ${extract_tarbz2}",
           default   => fail ( "Unknown extension value '${extension}'" ),
         },
-        creates => $extract_dir,
-        timeout => $timeout
+        refreshonly => true,
+        subscribe   => File[$version_file],
+        timeout     => $timeout,
       }
     }
     absent: {

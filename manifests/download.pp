@@ -52,7 +52,14 @@ define archive::download (
     default => '',
   }
 
-  if !defined(Package['curl']) {
+  # TODO : probably better to have this be a regex...
+  if 'puppet:///' in $url {
+    $download_from_puppet = true
+  } else {
+    $download_from_puppet = false
+  }
+
+  if (!$download_from_puppet) and (!defined(Package['curl'])) {
     package{'curl':
       ensure => present,
     }
@@ -82,12 +89,19 @@ define archive::download (
               $digest_src = $digest_url
             }
 
-            exec {"download digest of archive $name":
-              command => "curl ${insecure_arg} ${redirect_arg} -o ${src_target}/${name}.${digest_type} ${digest_src}",
-              creates => "${src_target}/${name}.${digest_type}",
-              timeout => $timeout,
-              notify  => Exec["download archive $name and check sum"],
-              require => Package['curl'],
+            if $download_from_puppet {
+              file {"${src_target}/${name}.${digest_type}":
+                ensure => present,
+                source => $digest_src,
+              }
+            } else {
+              exec {"download digest of archive $name":
+                command => "curl ${insecure_arg} ${redirect_arg} -o ${src_target}/${name}.${digest_type} ${digest_src}",
+                creates => "${src_target}/${name}.${digest_type}",
+                timeout => $timeout,
+                notify  => Exec["download archive $name and check sum"],
+                require => Package['curl'],
+              }
             }
 
           }
@@ -101,7 +115,8 @@ define archive::download (
         }
       }
 
-      if $digest_string != '' {
+      #else digest_string != ''
+      else {
         case $ensure {
           present: {
             file {"${src_target}/${name}.${digest_type}":
@@ -126,27 +141,36 @@ define archive::download (
 
   case $ensure {
     present: {
-      exec {"download archive $name and check sum":
-        command   => "curl ${insecure_arg} ${redirect_arg} -o ${src_target}/${name} ${url}",
-        creates   => "${src_target}/${name}",
-        logoutput => true,
-        timeout   => $timeout,
-        require   => Package['curl'],
-        notify    => $checksum ? {
-          true    => Exec["rm-on-error-${name}"],
-          default => undef,
-        },
-        refreshonly => $checksum ? {
-          true      => true,
-          default   => undef,
-        },
-      }
+      if $download_from_puppet {
+        file { "${src_target}/${name}":
+          ensure => present,
+          source => $url,
+          links  => follow,
+        }
 
-      exec {"rm-on-error-${name}":
-        command     => "rm -f ${src_target}/${name} ${src_target}/${name}.${digest_type} && exit 1",
-        unless      => $checksum_cmd,
-        cwd         => $src_target,
-        refreshonly => true,
+      } else {
+        exec {"download archive $name and check sum":
+          command   => "curl ${insecure_arg} ${redirect_arg} -o ${src_target}/${name} ${url}",
+          creates   => "${src_target}/${name}",
+          logoutput => true,
+          timeout   => $timeout,
+          require   => Package['curl'],
+          notify    => $checksum ? {
+            true    => Exec["rm-on-error-${name}"],
+            default => undef,
+          },
+          refreshonly => $checksum ? {
+            true      => true,
+            default   => undef,
+          },
+        }
+
+        exec {"rm-on-error-${name}":
+          command     => "rm -f ${src_target}/${name} ${src_target}/${name}.${digest_type} && exit 1",
+          unless      => $checksum_cmd,
+          cwd         => $src_target,
+          refreshonly => true,
+        }
       }
     }
     absent: {
