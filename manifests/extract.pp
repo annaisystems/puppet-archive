@@ -44,10 +44,13 @@ define archive::extract (
 
   if $root_dir != '' {
     $extract_dir = "${target}/${root_dir}"
+    $version_file = "${target}/.${root_dir}_version"
+
+    # NOTE : mk_root_dir hasn't been tested yet
     if $mk_root_dir {
       $target = $extract_dir
-      $version_file = "${target}/.${root_dir}_version"
     }
+
   } else {
     $extract_dir = "${target}/${name}"
     $version_file = "${target}/.${name}_version"
