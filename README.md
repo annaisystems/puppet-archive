@@ -40,3 +40,12 @@ Support
 -------
 
 Please log tickets and issues at our [project site](https://github.com/camptocamp/puppet-archive/issues).
+
+
+Changes from upstream version
+-------
+- added support for puppet fileserver source
+- added version tracking
+- added ability to specify creation of root_dir for archives that do not include base directory name or for use with new strip_leader option
+- added strip_leader option, which will remove the leading path component
+from extracted archive content
